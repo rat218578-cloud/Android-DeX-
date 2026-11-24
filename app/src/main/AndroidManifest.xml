@@ -3,8 +3,16 @@
 
     <!-- Estado da rede exibido na barra de tarefas. Nenhum dado é enviado a servidores. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Necessário para listar os apps do lançador. Restrito pelo Google Play; pensado para APK direto. -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!--
+        Visibilidade de pacotes: declara apenas a consulta de apps com ícone de lançamento,
+        que é o que AppCatalog.loadLaunchable() faz. Dispensa QUERY_ALL_PACKAGES (restrita).
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="false"
