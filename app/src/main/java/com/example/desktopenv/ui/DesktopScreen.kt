@@ -7,9 +7,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -169,13 +169,14 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                             // Entrada suave ao abrir; ao fechar, a janela sai da lista sem animação de saída.
                             var entered by remember { mutableStateOf(false) }
                             LaunchedEffect(Unit) { entered = true }
-                            AnimatedVisibility(
-                                visible = entered,
-                                enter = fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.96f),
-                                exit = fadeOut(tween(120)),
-                            ) {
+                            val enterProgress by animateFloatAsState(
+                                targetValue = if (entered) 1f else 0f,
+                                animationSpec = tween(180),
+                                label = "windowEnter",
+                            )
                             WindowHost(
                                 window = window,
+                                enterProgress = enterProgress,
                                 frame = window.frame(areaW, areaH),
                                 onFocus = { viewModel.focusWindow(window.id) },
                                 onDrag = { dx, dy ->
@@ -229,7 +230,6 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                                         )
                                     },
                                 )
-                            }
                             }
                         }
                     }

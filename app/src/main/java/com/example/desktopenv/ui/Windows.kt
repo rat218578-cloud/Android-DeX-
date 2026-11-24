@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -88,6 +89,8 @@ fun WindowHost(
     onSnap: (Placement) -> Unit,
     onMinimize: () -> Unit,
     onClose: () -> Unit,
+    /** Progresso da entrada (0 a 1): controla opacidade e leve escala. Só afeta a aparência. */
+    enterProgress: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -104,6 +107,12 @@ fun WindowHost(
 
     Box(
         modifier = Modifier
+            .graphicsLayer {
+                alpha = enterProgress
+                val s = 0.96f + 0.04f * enterProgress
+                scaleX = s
+                scaleY = s
+            }
             .offset { IntOffset(frame.x.roundToInt(), frame.y.roundToInt()) }
             .size(
                 width = with(density) { frame.width.toDp() },
