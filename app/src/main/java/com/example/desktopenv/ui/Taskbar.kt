@@ -1,6 +1,10 @@
 package com.example.desktopenv.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,32 +12,54 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.example.desktopenv.data.AppEntry
 import com.example.desktopenv.data.BatteryInfo
 import com.example.desktopenv.data.NetworkKind
+import com.example.desktopenv.model.DesktopWindow
+import com.example.desktopenv.model.Placement
 import com.example.desktopenv.model.WindowsState
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 val TASKBAR_HEIGHT = 56.dp
 
+/**
+ * Barra de tarefas: Iniciar, apps fixados, janelas abertas (com menu de contexto),
+ * e indicadores de rede, bateria e relógio.
+ *
+ * Toque no botão de uma janela alterna entre mostrar e minimizar. Segurar (ou clique
+ * direito com mouse) abre o menu com maximizar, minimizar e fechar.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Taskbar(
     windows: WindowsState,
+    pinnedApps: List<AppEntry>,
+    icons: Map<String, ImageBitmap>,
     startOpen: Boolean,
     quickOpen: Boolean,
     battery: BatteryInfo,
@@ -42,6 +68,10 @@ fun Taskbar(
     onStart: () -> Unit,
     onWindowTap: (Long) -> Unit,
     onQuick: () -> Unit,
+    onLaunchPinned: (String) -> Unit,
+    onToggleMaximize: (Long) -> Unit,
+    onMinimize: (Long) -> Unit,
+    onCloseWindow: (Long) -> Unit,
 ) {
     val timeFormat = remember { DateTimeFormatter.ofPattern("HH:mm") }
     val dateFormat = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
@@ -87,31 +117,45 @@ fun Taskbar(
 
             Spacer(Modifier.width(8.dp))
 
-            // Janelas abertas: toque alterna entre mostrar, focar e minimizar
             LazyRow(
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                items(windows.windows, key = { it.id }) { window ->
-                    val focused = windows.topWindowId == window.id
+                // Apps fixados: um toque abre o app
+                items(pinnedApps, key = { "pin:${it.packageName}" }) { app ->
                     Surface(
-                        onClick = { onWindowTap(window.id) },
+                        onClick = { onLaunchPinned(app.packageName) },
                         shape = MaterialTheme.shapes.medium,
-                        color = when {
-                            focused -> colors.primaryContainer
-                            window.minimized -> colors.surface
-                            else -> colors.surfaceVariant
-                        },
+                        color = colors.surfaceVariant,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .semantics { contentDescription = "Abrir ${app.label}" },
                     ) {
-                        Text(
-                            text = window.kind.title,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            maxLines = 1,
-                            color = if (window.minimized) colors.onSurfaceVariant else colors.onSurface,
-                        )
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            val bitmap = icons[app.packageName]
+                            if (bitmap != null) {
+                                Image(bitmap = bitmap, contentDescription = null, modifier = Modifier.size(28.dp))
+                            } else {
+                                Text(
+                                    text = app.label.take(1).uppercase(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            }
+                        }
                     }
+                }
+
+                // Janelas abertas
+                items(windows.windows, key = { "win:${it.id}" }) { window ->
+                    WindowTaskbarButton(
+                        window = window,
+                        focused = windows.topWindowId == window.id,
+                        onTap = { onWindowTap(window.id) },
+                        onToggleMaximize = { onToggleMaximize(window.id) },
+                        onMinimize = { onMinimize(window.id) },
+                        onClose = { onCloseWindow(window.id) },
+                    )
                 }
             }
 
@@ -140,6 +184,60 @@ fun Taskbar(
                     )
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun WindowTaskbarButton(
+    window: DesktopWindow,
+    focused: Boolean,
+    onTap: () -> Unit,
+    onToggleMaximize: () -> Unit,
+    onMinimize: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    var menuOpen by remember(window.id) { mutableStateOf(false) }
+
+    Box {
+        Surface(
+            modifier = Modifier.combinedClickable(
+                onClick = onTap,
+                onLongClick = { menuOpen = true },
+            ),
+            shape = MaterialTheme.shapes.medium,
+            color = when {
+                focused -> colors.primaryContainer
+                window.minimized -> colors.surface
+                else -> colors.surfaceVariant
+            },
+        ) {
+            Text(
+                text = window.kind.title,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                color = if (window.minimized) colors.onSurfaceVariant else colors.onSurface,
+            )
+        }
+
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = {
+                    Text(if (window.placement == Placement.MAXIMIZED) "Restaurar" else "Maximizar")
+                },
+                onClick = { menuOpen = false; onToggleMaximize() },
+            )
+            DropdownMenuItem(
+                text = { Text("Minimizar") },
+                onClick = { menuOpen = false; onMinimize() },
+            )
+            DropdownMenuItem(
+                text = { Text("Fechar") },
+                onClick = { menuOpen = false; onClose() },
+            )
         }
     }
 }

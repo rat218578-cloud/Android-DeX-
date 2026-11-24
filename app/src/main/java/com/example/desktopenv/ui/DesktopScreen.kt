@@ -81,6 +81,7 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
     val areaW = areaPx.width.toFloat()
     val areaH = areaPx.height.toFloat()
     val pinnedApps = prefs.pinned.mapNotNull { pkg -> apps.firstOrNull { it.packageName == pkg } }
+    val recentApps = prefs.recent.mapNotNull { pkg -> apps.firstOrNull { it.packageName == pkg } }.take(6)
     val wallpaper = Wallpapers[prefs.wallpaper.coerceIn(0, Wallpapers.lastIndex)]
 
     fun openBuiltin(kind: WindowKind) = viewModel.openBuiltin(kind, areaW, areaH, density)
@@ -186,6 +187,8 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
 
             Taskbar(
                 windows = windows,
+                pinnedApps = pinnedApps,
+                icons = icons,
                 startOpen = startOpen,
                 quickOpen = quickOpen,
                 battery = battery,
@@ -194,6 +197,10 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                 onStart = viewModel::toggleStart,
                 onWindowTap = viewModel::toggleWindow,
                 onQuick = viewModel::toggleQuick,
+                onLaunchPinned = { pkg -> viewModel.closeOverlays(); onLaunch(pkg) },
+                onToggleMaximize = viewModel::toggleMaximizeWindow,
+                onMinimize = viewModel::minimizeWindow,
+                onCloseWindow = viewModel::closeWindow,
             )
         }
 
@@ -201,6 +208,7 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
             StartMenu(
                 apps = apps,
                 icons = icons,
+                recentApps = recentApps,
                 onOpenBuiltin = ::openBuiltin,
                 onLaunch = { pkg -> viewModel.closeOverlays(); onLaunch(pkg) },
                 onTogglePin = viewModel::togglePin,
