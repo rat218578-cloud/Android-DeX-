@@ -239,6 +239,8 @@ class DesktopViewModel(application: Application) : AndroidViewModel(application)
 
     fun minimizeTopWindow() = _windows.update { WindowLogic.minimizeTop(it) }
 
+    fun minimizeAllWindows() = _windows.update { WindowLogic.minimizeAll(it) }
+
     fun moveWindow(id: Long, dx: Float, dy: Float, areaW: Float, areaH: Float, density: Float) =
         _windows.update { WindowLogic.move(it, id, dx, dy, areaW, areaH, minVisible = 40f * density) }
 

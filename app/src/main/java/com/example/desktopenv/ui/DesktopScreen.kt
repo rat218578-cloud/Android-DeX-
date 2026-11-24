@@ -36,6 +36,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -48,6 +49,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.desktopenv.model.Placement
+import com.example.desktopenv.model.ShortcutAction
+import com.example.desktopenv.model.ShortcutMap
 import com.example.desktopenv.model.WindowKind
 import com.example.desktopenv.ui.theme.Wallpapers
 import com.example.desktopenv.viewmodel.DesktopViewModel
@@ -96,7 +99,7 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
             .background(wallpaper)
             .focusRequester(focusRequester)
             .focusable()
-            .onPreviewKeyEvent { event -> handleShortcut(event, viewModel) }
+            .onPreviewKeyEvent { event -> handleShortcut(event, viewModel, ::openBuiltin) }
             // Toque em área vazia fecha menus; pressão longa abre o menu de contexto.
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -170,6 +173,7 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                                     viewModel.resizeWindow(window.id, dw, dh, areaW, areaH, density)
                                 },
                                 onToggleMaximize = { viewModel.toggleMaximizeWindow(window.id) },
+                                onSnap = { side -> viewModel.snapWindow(window.id, side) },
                                 onMinimize = { viewModel.minimizeWindow(window.id) },
                                 onClose = { viewModel.closeWindow(window.id) },
                             ) {
@@ -287,23 +291,37 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
 }
 
 /**
- * Atalhos: Esc fecha menus, Alt+Tab alterna janelas, Alt+F4 e Ctrl+W fecham a janela em foco,
- * Ctrl+M minimiza, F11 maximiza/restaura, Windows+setas encaixam ou maximizam, Windows sozinho abre Iniciar.
+ * Traduz a tecla em ação pela tabela [ShortcutMap] e a executa. Retorna true se a tecla foi consumida.
+ * Os atalhos são internos ao Deskora: combinações reservadas pelo sistema não chegam aqui.
  */
-private fun handleShortcut(event: KeyEvent, viewModel: DesktopViewModel): Boolean {
+private fun handleShortcut(
+    event: KeyEvent,
+    viewModel: DesktopViewModel,
+    openBuiltin: (WindowKind) -> Unit,
+): Boolean {
     if (event.type != KeyEventType.KeyDown) return false
-    return when {
-        event.key == Key.Escape -> { viewModel.closeOverlays(); true }
-        event.key == Key.Tab && event.isAltPressed -> { viewModel.cycleWindows(); true }
-        event.key == Key.F4 && event.isAltPressed -> { viewModel.closeTopWindow(); true }
-        event.key == Key.W && event.isCtrlPressed -> { viewModel.closeTopWindow(); true }
-        event.key == Key.M && event.isCtrlPressed -> { viewModel.minimizeTopWindow(); true }
-        event.key == Key.F11 -> { viewModel.toggleMaximizeTopWindow(); true }
-        event.isMetaPressed && event.key == Key.DirectionLeft -> { viewModel.snapTopWindow(Placement.SNAP_LEFT); true }
-        event.isMetaPressed && event.key == Key.DirectionRight -> { viewModel.snapTopWindow(Placement.SNAP_RIGHT); true }
-        event.isMetaPressed && event.key == Key.DirectionUp -> { viewModel.maximizeTopWindow(); true }
-        event.isMetaPressed && event.key == Key.DirectionDown -> { viewModel.restoreTopWindow(); true }
-        event.key == Key.MetaLeft || event.key == Key.MetaRight -> { viewModel.toggleStart(); true }
-        else -> false
+    val action = ShortcutMap.resolve(
+        keyCode = event.nativeKeyEvent.keyCode,
+        ctrl = event.isCtrlPressed,
+        alt = event.isAltPressed,
+        meta = event.isMetaPressed,
+        shift = event.isShiftPressed,
+    ) ?: return false
+
+    when (action) {
+        ShortcutAction.CLOSE_OVERLAYS -> viewModel.closeOverlays()
+        ShortcutAction.CYCLE_WINDOWS -> viewModel.cycleWindows()
+        ShortcutAction.CLOSE_TOP_WINDOW -> viewModel.closeTopWindow()
+        ShortcutAction.MINIMIZE_TOP_WINDOW -> viewModel.minimizeTopWindow()
+        ShortcutAction.TOGGLE_MAXIMIZE_TOP_WINDOW -> viewModel.toggleMaximizeTopWindow()
+        ShortcutAction.MAXIMIZE_TOP_WINDOW -> viewModel.maximizeTopWindow()
+        ShortcutAction.RESTORE_TOP_WINDOW -> viewModel.restoreTopWindow()
+        ShortcutAction.SNAP_LEFT_TOP_WINDOW -> viewModel.snapTopWindow(Placement.SNAP_LEFT)
+        ShortcutAction.SNAP_RIGHT_TOP_WINDOW -> viewModel.snapTopWindow(Placement.SNAP_RIGHT)
+        ShortcutAction.SHOW_DESKTOP -> viewModel.minimizeAllWindows()
+        ShortcutAction.TOGGLE_START -> viewModel.toggleStart()
+        ShortcutAction.OPEN_FILES -> openBuiltin(WindowKind.FILES)
+        ShortcutAction.OPEN_SETTINGS -> openBuiltin(WindowKind.SETTINGS)
     }
+    return true
 }

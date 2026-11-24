@@ -122,4 +122,15 @@ class WindowLogicEdgeCasesTest {
 
         assertTrue(idOf(state, WindowKind.SETTINGS) > firstId)
     }
+
+    @Test
+    fun minimize_all_hides_every_window_and_keeps_them() {
+        var state = open(WindowsState(), WindowKind.SETTINGS)
+        state = open(state, WindowKind.CALENDAR)
+        state = WindowLogic.minimizeAll(state)
+
+        assertEquals(2, state.windows.size)
+        assertTrue(state.windows.all { it.minimized })
+        assertNull(state.topWindowId)
+    }
 }

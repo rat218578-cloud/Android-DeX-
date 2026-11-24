@@ -132,6 +132,10 @@ object WindowLogic {
         return if (!target.minimized && state.topWindowId == id) minimize(state, id) else focus(state, id)
     }
 
+    /** Mostrar área de trabalho: minimiza todas as janelas visíveis. Restaurar é feito pela barra de tarefas. */
+    fun minimizeAll(state: WindowsState): WindowsState =
+        state.copy(windows = state.windows.map { if (it.minimized) it else it.copy(minimized = true) })
+
     fun minimizeTop(state: WindowsState): WindowsState =
         state.topWindowId?.let { minimize(state, it) } ?: state
 

@@ -18,6 +18,13 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.awaitPointerEvent
+import androidx.compose.ui.input.pointer.awaitPointerEventScope
+import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -76,11 +83,13 @@ fun WindowHost(
     onDragEnd: () -> Unit,
     onResize: (Float, Float) -> Unit,
     onToggleMaximize: () -> Unit,
+    onSnap: (Placement) -> Unit,
     onMinimize: () -> Unit,
     onClose: () -> Unit,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
+    var titleMenuOpen by remember(window.id) { mutableStateOf(false) }
     val floating = window.placement == Placement.FLOATING
     val corner = if (floating) 16.dp else 0.dp
     val shape = RoundedCornerShape(corner)
@@ -131,6 +140,18 @@ fun WindowHost(
                     .pointerInput(window.id) {
                         detectTapGestures(onDoubleTap = { currentToggle() })
                     }
+                    // Clique direito na barra de título abre o menu da janela (mouse e touchpad).
+                    .pointerInput(window.id) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) {
+                                    titleMenuOpen = true
+                                    event.changes.forEach { it.consume() }
+                                }
+                            }
+                        }
+                    }
                     .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -154,6 +175,29 @@ fun WindowHost(
                     onClick = onClose,
                     modifier = Modifier.semantics { contentDescription = "Fechar janela" },
                 ) { Text("×") }
+
+                DropdownMenu(expanded = titleMenuOpen, onDismissRequest = { titleMenuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(if (maximized) "Restaurar" else "Maximizar") },
+                        onClick = { titleMenuOpen = false; onToggleMaximize() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Encaixar à esquerda") },
+                        onClick = { titleMenuOpen = false; onSnap(Placement.SNAP_LEFT) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Encaixar à direita") },
+                        onClick = { titleMenuOpen = false; onSnap(Placement.SNAP_RIGHT) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Minimizar") },
+                        onClick = { titleMenuOpen = false; onMinimize() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Fechar") },
+                        onClick = { titleMenuOpen = false; onClose() },
+                    )
+                }
             }
 
             Box(
