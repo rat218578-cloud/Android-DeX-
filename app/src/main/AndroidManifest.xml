@@ -36,5 +36,18 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!--
+            Acesso às notificações: o usuário concede em Ajustes > Notificações > Acesso a notificações.
+            Sem essa concessão, o serviço não recebe nada. Ver data/DeskoraNotificationListener.kt.
+        -->
+        <service
+            android:name=".data.DeskoraNotificationListener"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

@@ -69,6 +69,7 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
     val battery by viewModel.battery.collectAsState()
     val network by viewModel.network.collectAsState()
     val clock by viewModel.clock.collectAsState()
+    val unreadNotifications by viewModel.unreadNotifications.collectAsState()
 
     val density = LocalDensity.current.density
     var areaPx by remember { mutableStateOf(IntSize.Zero) }
@@ -179,6 +180,7 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                                     onWallpaper = viewModel::setWallpaper,
                                     onClearRecent = viewModel::clearRecent,
                                     onLaunch = { pkg -> viewModel.closeOverlays(); onLaunch(pkg) },
+                                    onClearNotifications = viewModel::clearNotifications,
                                 )
                             }
                         }
@@ -201,6 +203,8 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                 onToggleMaximize = viewModel::toggleMaximizeWindow,
                 onMinimize = viewModel::minimizeWindow,
                 onCloseWindow = viewModel::closeWindow,
+                unreadNotifications = unreadNotifications,
+                onNotifications = { openBuiltin(WindowKind.NOTIFICATIONS) },
             )
         }
 

@@ -11,9 +11,12 @@ import com.example.desktopenv.data.BatteryInfo
 import com.example.desktopenv.data.DesktopPrefs
 import com.example.desktopenv.data.DesktopPrefsState
 import com.example.desktopenv.data.NetworkKind
+import com.example.desktopenv.data.NotificationAccess
+import com.example.desktopenv.data.NotificationStore
 import com.example.desktopenv.data.SystemStatus
 import com.example.desktopenv.data.ThemeChoice
 import com.example.desktopenv.data.WALLPAPER_COUNT
+import com.example.desktopenv.model.NotificationRecord
 import com.example.desktopenv.model.Placement
 import com.example.desktopenv.model.RecentList
 import com.example.desktopenv.model.WindowKind
@@ -130,8 +133,18 @@ class DesktopViewModel(application: Application) : AndroidViewModel(application)
 
     fun openBuiltin(kind: WindowKind, areaW: Float, areaH: Float, density: Float, payload: String = "") {
         _windows.update { WindowLogic.open(it, kind, areaW, areaH, density, payload) }
+        if (kind == WindowKind.NOTIFICATIONS) NotificationStore.markAllRead()
         closeOverlays()
     }
+
+    // ---- Notificações ----
+
+    val notifications: StateFlow<List<NotificationRecord>> = NotificationStore.items
+    val unreadNotifications: StateFlow<Int> = NotificationStore.unread
+
+    fun clearNotifications() = NotificationStore.clear()
+
+    fun hasNotificationAccess(): Boolean = NotificationAccess.isGranted(getApplication())
 
     fun maximizeWindow(id: Long) = _windows.update { WindowLogic.maximize(it, id) }
 

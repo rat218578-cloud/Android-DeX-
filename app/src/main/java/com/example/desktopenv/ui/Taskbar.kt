@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -72,6 +73,8 @@ fun Taskbar(
     onToggleMaximize: (Long) -> Unit,
     onMinimize: (Long) -> Unit,
     onCloseWindow: (Long) -> Unit,
+    unreadNotifications: Int,
+    onNotifications: () -> Unit,
 ) {
     val timeFormat = remember { DateTimeFormatter.ofPattern("HH:mm") }
     val dateFormat = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
@@ -156,6 +159,41 @@ fun Taskbar(
                         onMinimize = { onMinimize(window.id) },
                         onClose = { onCloseWindow(window.id) },
                     )
+                }
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            // Notificações não lidas: toque abre a central
+            Surface(
+                onClick = onNotifications,
+                shape = MaterialTheme.shapes.medium,
+                color = if (unreadNotifications > 0) colors.primaryContainer else colors.surfaceVariant,
+                modifier = Modifier.semantics {
+                    contentDescription = if (unreadNotifications > 0) {
+                        "Notificações: $unreadNotifications não lidas"
+                    } else {
+                        "Notificações"
+                    }
+                },
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = if (unreadNotifications > 0) colors.onPrimaryContainer else colors.onSurface,
+                    )
+                    if (unreadNotifications > 0) {
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = if (unreadNotifications > 99) "99+" else unreadNotifications.toString(),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colors.onPrimaryContainer,
+                        )
+                    }
                 }
             }
 

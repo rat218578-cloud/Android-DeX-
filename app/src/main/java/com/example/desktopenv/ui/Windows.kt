@@ -195,13 +195,15 @@ fun WindowBody(
     onWallpaper: (Int) -> Unit,
     onClearRecent: () -> Unit,
     onLaunch: (String) -> Unit,
+    onClearNotifications: () -> Unit,
 ) {
     when (kind) {
         WindowKind.SETTINGS -> SettingsBody(theme, wallpaper, onTheme, onWallpaper, onClearRecent)
         WindowKind.CALENDAR -> CalendarBody()
         WindowKind.RECENT -> RecentBody(recent, labelOf, onLaunch)
-        // Corpos das fases 3 a 5; enquanto não existem, a janela mostra apenas que está em construção.
-        WindowKind.NOTIFICATIONS, WindowKind.MEDIA, WindowKind.FILES -> Text(
+        WindowKind.NOTIFICATIONS -> NotificationsBody(labelOf, onClearNotifications)
+        // Corpos das fases 4 e 5; enquanto não existem, a janela mostra apenas que está em construção.
+        WindowKind.MEDIA, WindowKind.FILES -> Text(
             text = "Em construção.",
             style = MaterialTheme.typography.bodyMedium,
         )
