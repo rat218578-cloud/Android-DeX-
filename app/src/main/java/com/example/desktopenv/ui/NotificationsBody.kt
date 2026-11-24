@@ -19,6 +19,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
@@ -51,18 +52,8 @@ fun NotificationsBody(
     onClear: () -> Unit,
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val history by NotificationStore.items.collectAsState()
-    var granted by remember { mutableStateOf(NotificationAccess.isGranted(context)) }
-
-    // Ao voltar de Ajustes, a permissão é verificada de novo.
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) granted = NotificationAccess.isGranted(context)
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
+    val granted = rememberNotificationAccess()
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -109,6 +100,30 @@ fun NotificationsBody(
             }
         }
     }
+}
+
+/**
+ * Estado atual da permissão de acesso às notificações. Reverifica ao voltar a esta tela
+ * (por exemplo, depois de Ajustes) e chama [onResume] nesse momento.
+ */
+@Composable
+internal fun rememberNotificationAccess(onResume: () -> Unit = {}): Boolean {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val currentOnResume by rememberUpdatedState(onResume)
+    var granted by remember { mutableStateOf(NotificationAccess.isGranted(context)) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                granted = NotificationAccess.isGranted(context)
+                currentOnResume()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    return granted
 }
 
 @Composable

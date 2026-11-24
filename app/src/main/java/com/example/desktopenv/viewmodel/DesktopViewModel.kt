@@ -12,10 +12,12 @@ import com.example.desktopenv.data.DesktopPrefs
 import com.example.desktopenv.data.DesktopPrefsState
 import com.example.desktopenv.data.NetworkKind
 import com.example.desktopenv.data.NotificationAccess
+import com.example.desktopenv.data.MediaRepository
 import com.example.desktopenv.data.NotificationStore
 import com.example.desktopenv.data.SystemStatus
 import com.example.desktopenv.data.ThemeChoice
 import com.example.desktopenv.data.WALLPAPER_COUNT
+import com.example.desktopenv.model.MediaInfo
 import com.example.desktopenv.model.NotificationRecord
 import com.example.desktopenv.model.Placement
 import com.example.desktopenv.model.RecentList
@@ -43,6 +45,7 @@ class DesktopViewModel(application: Application) : AndroidViewModel(application)
     private val prefs = DesktopPrefs(application)
     private val catalog = AppCatalog(application)
     private val status = SystemStatus(application)
+    private val media = MediaRepository(application)
 
     val prefsState: StateFlow<DesktopPrefsState> =
         prefs.state.stateIn(viewModelScope, SharingStarted.Eagerly, DesktopPrefsState())
@@ -74,6 +77,7 @@ class DesktopViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         status.start()
+        media.start()
         loadApps()
         restoreAndPersistLayout()
     }
@@ -94,6 +98,7 @@ class DesktopViewModel(application: Application) : AndroidViewModel(application)
 
     override fun onCleared() {
         status.stop()
+        media.stop()
         super.onCleared()
     }
 
@@ -145,6 +150,24 @@ class DesktopViewModel(application: Application) : AndroidViewModel(application)
     fun clearNotifications() = NotificationStore.clear()
 
     fun hasNotificationAccess(): Boolean = NotificationAccess.isGranted(getApplication())
+
+    // ---- Mídia ----
+
+    val mediaInfo: StateFlow<MediaInfo?> = media.media
+    val mediaVolume: StateFlow<Int> = media.volumePercent
+
+    fun mediaPlayPause() = media.playPause()
+
+    fun mediaNext() = media.next()
+
+    fun mediaPrevious() = media.previous()
+
+    fun mediaVolumeUp() = media.volumeUp()
+
+    fun mediaVolumeDown() = media.volumeDown()
+
+    /** Reavalia a permissão de mídia; chamado ao voltar de Ajustes. */
+    fun refreshMedia() = media.refresh()
 
     fun maximizeWindow(id: Long) = _windows.update { WindowLogic.maximize(it, id) }
 

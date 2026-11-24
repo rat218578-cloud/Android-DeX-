@@ -196,14 +196,16 @@ fun WindowBody(
     onClearRecent: () -> Unit,
     onLaunch: (String) -> Unit,
     onClearNotifications: () -> Unit,
+    mediaContent: @Composable () -> Unit,
 ) {
     when (kind) {
         WindowKind.SETTINGS -> SettingsBody(theme, wallpaper, onTheme, onWallpaper, onClearRecent)
         WindowKind.CALENDAR -> CalendarBody()
         WindowKind.RECENT -> RecentBody(recent, labelOf, onLaunch)
         WindowKind.NOTIFICATIONS -> NotificationsBody(labelOf, onClearNotifications)
-        // Corpos das fases 4 e 5; enquanto não existem, a janela mostra apenas que está em construção.
-        WindowKind.MEDIA, WindowKind.FILES -> Text(
+        WindowKind.MEDIA -> mediaContent()
+        // Corpo da fase 5; até lá a janela mostra apenas que está em construção.
+        WindowKind.FILES -> Text(
             text = "Em construção.",
             style = MaterialTheme.typography.bodyMedium,
         )

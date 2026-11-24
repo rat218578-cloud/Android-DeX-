@@ -3,6 +3,8 @@
 
     <!-- Estado da rede exibido na barra de tarefas. Nenhum dado é enviado a servidores. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Volume de música pelo controle da janela de mídia. Permissão normal, concedida na instalação. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!--
         Visibilidade de pacotes: declara apenas a consulta de apps com ícone de lançamento,
         que é o que AppCatalog.loadLaunchable() faz. Dispensa QUERY_ALL_PACKAGES (restrita).
