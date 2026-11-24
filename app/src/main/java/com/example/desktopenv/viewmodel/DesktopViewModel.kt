@@ -12,7 +12,9 @@ import com.example.desktopenv.data.DesktopPrefs
 import com.example.desktopenv.data.DesktopPrefsState
 import com.example.desktopenv.data.NetworkKind
 import com.example.desktopenv.data.NotificationAccess
+import com.example.desktopenv.data.FileRepository
 import com.example.desktopenv.data.MediaRepository
+import com.example.desktopenv.model.FileClipboard
 import com.example.desktopenv.data.NotificationStore
 import com.example.desktopenv.data.SystemStatus
 import com.example.desktopenv.data.ThemeChoice
@@ -168,6 +170,33 @@ class DesktopViewModel(application: Application) : AndroidViewModel(application)
 
     /** Reavalia a permissão de mídia; chamado ao voltar de Ajustes. */
     fun refreshMedia() = media.refresh()
+
+    // ---- Arquivos ----
+
+    /** Repositório de arquivos. Só acessa pastas que o usuário autorizou. */
+    val fileRepository: FileRepository = FileRepository(application)
+
+    private val _fileClipboard = MutableStateFlow<FileClipboard?>(null)
+    val fileClipboard: StateFlow<FileClipboard?> = _fileClipboard.asStateFlow()
+
+    fun setClipboard(clip: FileClipboard?) {
+        _fileClipboard.value = clip
+    }
+
+    fun setWindowPayload(id: Long, payload: String) = _windows.update { WindowLogic.setPayload(it, id, payload) }
+
+    /** Guarda o acesso à pasta escolhida e a inclui na lista de pastas autorizadas. Sem acesso, nada é adicionado. */
+    fun addFolder(treeUri: String) {
+        fileRepository.takeAccess(treeUri).onSuccess {
+            viewModelScope.launch { prefs.setFolders((prefsState.value.folders + treeUri).distinct()) }
+        }
+    }
+
+    /** Remove o acesso à pasta e a tira da lista. */
+    fun removeFolder(treeUri: String) {
+        fileRepository.releaseAccess(treeUri)
+        viewModelScope.launch { prefs.setFolders(prefsState.value.folders - treeUri) }
+    }
 
     fun maximizeWindow(id: Long) = _windows.update { WindowLogic.maximize(it, id) }
 

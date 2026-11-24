@@ -145,6 +145,10 @@ object WindowLogic {
         return focus(state, visible.first().id)
     }
 
+    /** Define o payload de uma janela, como a pasta raiz de uma janela de arquivos. Não altera a ordem Z. */
+    fun setPayload(state: WindowsState, id: Long, payload: String): WindowsState =
+        updateWindow(state, id) { it.copy(payload = payload) }
+
     /** Maximiza a janela (ou a restaura, se já estiver maximizada). */
     fun toggleMaximize(state: WindowsState, id: Long): WindowsState {
         val target = state.windows.firstOrNull { it.id == id } ?: return state

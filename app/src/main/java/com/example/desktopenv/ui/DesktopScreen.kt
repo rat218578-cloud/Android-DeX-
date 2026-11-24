@@ -72,6 +72,7 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
     val unreadNotifications by viewModel.unreadNotifications.collectAsState()
     val mediaInfo by viewModel.mediaInfo.collectAsState()
     val mediaVolume by viewModel.mediaVolume.collectAsState()
+    val fileClipboard by viewModel.fileClipboard.collectAsState()
 
     val density = LocalDensity.current.density
     var areaPx by remember { mutableStateOf(IntSize.Zero) }
@@ -193,6 +194,18 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                                             onVolumeUp = viewModel::mediaVolumeUp,
                                             onVolumeDown = viewModel::mediaVolumeDown,
                                             onResume = viewModel::refreshMedia,
+                                        )
+                                    },
+                                    filesContent = {
+                                        FilesBody(
+                                            rootUri = window.payload,
+                                            folders = prefs.folders,
+                                            repo = viewModel.fileRepository,
+                                            clipboard = fileClipboard,
+                                            onRootChange = { viewModel.setWindowPayload(window.id, it) },
+                                            onAddFolder = viewModel::addFolder,
+                                            onRemoveFolder = viewModel::removeFolder,
+                                            onClipboardChange = viewModel::setClipboard,
                                         )
                                     },
                                 )

@@ -197,6 +197,7 @@ fun WindowBody(
     onLaunch: (String) -> Unit,
     onClearNotifications: () -> Unit,
     mediaContent: @Composable () -> Unit,
+    filesContent: @Composable () -> Unit,
 ) {
     when (kind) {
         WindowKind.SETTINGS -> SettingsBody(theme, wallpaper, onTheme, onWallpaper, onClearRecent)
@@ -204,11 +205,7 @@ fun WindowBody(
         WindowKind.RECENT -> RecentBody(recent, labelOf, onLaunch)
         WindowKind.NOTIFICATIONS -> NotificationsBody(labelOf, onClearNotifications)
         WindowKind.MEDIA -> mediaContent()
-        // Corpo da fase 5; até lá a janela mostra apenas que está em construção.
-        WindowKind.FILES -> Text(
-            text = "Em construção.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        WindowKind.FILES -> filesContent()
     }
 }
 

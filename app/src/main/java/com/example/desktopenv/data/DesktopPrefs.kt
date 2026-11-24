@@ -19,6 +19,8 @@ data class DesktopPrefsState(
     val recent: List<String> = emptyList(),
     /** Layout das janelas no formato de [com.example.desktopenv.model.WindowLayoutCodec]. */
     val layout: String = "",
+    /** URIs de árvore das pastas que o usuário autorizou. */
+    val folders: List<String> = emptyList(),
 )
 
 /** Deve ser igual ao número de papéis de parede definidos na UI. */
@@ -37,6 +39,7 @@ class DesktopPrefs(context: Context) {
         val PINNED = stringPreferencesKey("pinned")
         val RECENT = stringPreferencesKey("recent")
         val LAYOUT = stringPreferencesKey("window_layout")
+        val FOLDERS = stringPreferencesKey("authorized_folders")
     }
 
     val state: Flow<DesktopPrefsState> = store.data.map { p ->
@@ -47,11 +50,17 @@ class DesktopPrefs(context: Context) {
             pinned = decode(p[Keys.PINNED]),
             recent = decode(p[Keys.RECENT]),
             layout = p[Keys.LAYOUT].orEmpty(),
+            folders = p[Keys.FOLDERS]?.split(LINE_SEPARATOR)?.filter { it.isNotBlank() }.orEmpty(),
         )
     }
 
     suspend fun setLayout(encoded: String) {
         store.edit { it[Keys.LAYOUT] = encoded }
+    }
+
+    suspend fun setFolders(uris: List<String>) {
+        // URIs não contêm quebras de linha, então o separador é seguro.
+        store.edit { it[Keys.FOLDERS] = uris.joinToString(LINE_SEPARATOR) }
     }
 
     suspend fun setTheme(choice: ThemeChoice) {
@@ -75,5 +84,6 @@ class DesktopPrefs(context: Context) {
 
     private companion object {
         const val SEPARATOR = ","
+        const val LINE_SEPARATOR = "\n"
     }
 }
