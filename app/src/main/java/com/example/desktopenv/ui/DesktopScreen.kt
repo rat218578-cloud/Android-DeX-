@@ -4,6 +4,14 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -159,6 +167,14 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                     .sortedBy { it.z }
                     .forEach { window ->
                         key(window.id) {
+                            // Entrada suave ao abrir; ao fechar, a janela sai da lista sem animação de saída.
+                            val entered = remember { MutableTransitionState(false) }
+                            LaunchedEffect(Unit) { entered.targetState = true }
+                            AnimatedVisibility(
+                                visibleState = entered,
+                                enter = fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.96f),
+                                exit = fadeOut(tween(120)),
+                            ) {
                             WindowHost(
                                 window = window,
                                 frame = window.frame(areaW, areaH),
@@ -215,6 +231,7 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                                     },
                                 )
                             }
+                            }
                         }
                     }
             }
@@ -240,7 +257,14 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
             )
         }
 
-        if (startOpen) {
+        AnimatedVisibility(
+            visible = startOpen,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 8.dp, bottom = TASKBAR_HEIGHT + 8.dp),
+            enter = fadeIn(tween(160)) + slideInVertically(tween(160)) { it / 6 },
+            exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { it / 6 },
+        ) {
             StartMenu(
                 apps = apps,
                 icons = icons,
@@ -249,9 +273,6 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                 onLaunch = { pkg -> viewModel.closeOverlays(); onLaunch(pkg) },
                 onTogglePin = viewModel::togglePin,
                 onCloseAll = viewModel::closeAllWindows,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 8.dp, bottom = TASKBAR_HEIGHT + 8.dp),
             )
         }
 

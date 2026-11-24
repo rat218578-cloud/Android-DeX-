@@ -6,11 +6,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -85,8 +88,10 @@ fun StartMenu(
 
     Surface(
         modifier = modifier
-            .width(360.dp)
-            .height(500.dp)
+            // Adapta-se a telas estreitas: no máximo 360 dp de largura e 80% da altura, limitado a 500 dp.
+            .widthIn(min = 260.dp, max = 360.dp)
+            .heightIn(max = 500.dp)
+            .fillMaxHeight(0.8f)
             // Consome toques internos para que o fundo não feche o menu.
             .pointerInput(Unit) { detectTapGestures(onTap = {}) },
         shape = MaterialTheme.shapes.large,
