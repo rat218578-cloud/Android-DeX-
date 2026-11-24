@@ -144,12 +144,16 @@ class DesktopViewModel(application: Application) : AndroidViewModel(application)
 
     // ---- Aplicativos ----
 
-    /** Registra o app como recente e devolve a Intent de lançamento (ou null se não existir). */
+    /**
+     * Devolve a Intent de lançamento (ou null se o app não puder ser aberto).
+     * Só registra o app como recente quando a Intent existe, para não listar apps inválidos.
+     */
     fun launch(packageName: String): Intent? {
+        val intent = catalog.launchIntent(packageName) ?: return null
         viewModelScope.launch {
             prefs.setRecent(RecentList.push(prefsState.value.recent, packageName))
         }
-        return catalog.launchIntent(packageName)
+        return intent
     }
 
     fun togglePin(packageName: String) {

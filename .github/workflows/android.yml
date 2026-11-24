@@ -56,6 +56,49 @@ jobs:
       - name: Testes unitários
         run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
 
+      # Conta os casos a partir dos relatórios XML do Gradle, não do texto do log.
+      - name: Resumo dos testes unitários
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, os, sys
+          import xml.etree.ElementTree as ET
+
+          files = glob.glob("app/build/test-results/testDebugUnitTest/*.xml")
+          if not files:
+              print("Nenhum relatório de teste encontrado: os testes não rodaram.")
+              sys.exit(1)
+
+          total = failed = errors = skipped = 0
+          for path in files:
+              root = ET.parse(path).getroot()
+              total += int(root.get("tests", 0))
+              failed += int(root.get("failures", 0))
+              errors += int(root.get("errors", 0))
+              skipped += int(root.get("skipped", 0))
+          passed = total - failed - errors - skipped
+
+          lines = [
+              "### Testes unitários",
+              f"- Executados: **{total}**",
+              f"- Passaram: **{passed}**",
+              f"- Falharam: **{failed}**",
+              f"- Com erro: **{errors}**",
+              f"- Ignorados: **{skipped}**",
+          ]
+          text = "\n".join(lines)
+          print(text)
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as fh:
+                  fh.write(text + "\n")
+          if failed or errors:
+              sys.exit(1)
+          PY
+
+      - name: Android Lint (debug)
+        run: gradle :app:lintDebug --no-daemon --stacktrace
+
       - name: Compilar APK debug
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
@@ -91,4 +134,16 @@ jobs:
             dist/SHA256SUMS.txt
             dist/SIZES.txt
           if-no-files-found: error
+          retention-days: 14
+
+      # Relatório do Lint é publicado mesmo quando o Lint falha, para permitir a análise.
+      - name: Publicar relatório do Lint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+          if-no-files-found: warn
           retention-days: 14
