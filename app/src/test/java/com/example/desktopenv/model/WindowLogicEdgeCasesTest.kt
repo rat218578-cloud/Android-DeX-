@@ -66,12 +66,13 @@ class WindowLogicEdgeCasesTest {
         val calendarId = idOf(state, WindowKind.CALENDAR)
         state = WindowLogic.minimize(state, calendarId)
 
+        // Configurações é a única visível, então é ela que sai; o Calendário minimizado permanece.
         val result = WindowLogic.closeTop(state)
 
-        assertEquals(listOf(WindowKind.SETTINGS), result.windows.map { it.kind })
+        assertEquals(listOf(WindowKind.CALENDAR), result.windows.map { it.kind })
+        assertTrue(result.windows.single().minimized)
+        assertTrue(result.windows.none { it.id == settingsId })
         assertEquals(null, result.topWindowId)
-        assertTrue(result.windows.none { it.id == calendarId })
-        assertTrue(result.windows.any { it.id == settingsId })
     }
 
     @Test
