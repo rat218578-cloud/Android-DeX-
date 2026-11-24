@@ -1,5 +1,7 @@
 package com.example.desktopenv.ui
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -57,6 +60,7 @@ import com.example.desktopenv.model.Bounds
 import com.example.desktopenv.model.CalendarGrid
 import com.example.desktopenv.model.DesktopWindow
 import com.example.desktopenv.model.Placement
+import com.example.desktopenv.model.ShortcutMap
 import com.example.desktopenv.model.WindowKind
 import com.example.desktopenv.ui.theme.Wallpapers
 import java.time.LocalDate
@@ -236,13 +240,14 @@ fun WindowBody(
     onTheme: (ThemeChoice) -> Unit,
     onWallpaper: (Int) -> Unit,
     onClearRecent: () -> Unit,
+    onCloseAll: () -> Unit,
     onLaunch: (String) -> Unit,
     onClearNotifications: () -> Unit,
     mediaContent: @Composable () -> Unit,
     filesContent: @Composable () -> Unit,
 ) {
     when (kind) {
-        WindowKind.SETTINGS -> SettingsBody(theme, wallpaper, onTheme, onWallpaper, onClearRecent)
+        WindowKind.SETTINGS -> SettingsBody(theme, wallpaper, onTheme, onWallpaper, onClearRecent, onCloseAll)
         WindowKind.CALENDAR -> CalendarBody()
         WindowKind.RECENT -> RecentBody(recent, labelOf, onLaunch)
         WindowKind.NOTIFICATIONS -> NotificationsBody(labelOf, onClearNotifications)
@@ -258,7 +263,16 @@ private fun SettingsBody(
     onTheme: (ThemeChoice) -> Unit,
     onWallpaper: (Int) -> Unit,
     onClearRecent: () -> Unit,
+    onCloseAll: () -> Unit,
 ) {
+    val context = LocalContext.current
+    fun openSystem(action: String) {
+        // Algumas telas podem não existir no aparelho; nesse caso nada acontece.
+        runCatching {
+            context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -281,7 +295,40 @@ private fun SettingsBody(
             }
         }
 
-        OutlinedButton(onClick = onClearRecent) { Text("Limpar recentes") }
+        Text("Ajustes do sistema", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { openSystem(Settings.Panel.ACTION_WIFI) }) { Text("Wi-Fi") }
+            OutlinedButton(onClick = { openSystem(Settings.ACTION_SOUND_SETTINGS) }) { Text("Som") }
+            OutlinedButton(onClick = { openSystem(Settings.ACTION_BLUETOOTH_SETTINGS) }) { Text("Bluetooth") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { openSystem(Settings.ACTION_DISPLAY_SETTINGS) }) { Text("Tela") }
+            OutlinedButton(onClick = { openSystem(Settings.ACTION_SETTINGS) }) { Text("Android") }
+        }
+
+        Text("Atalhos do teclado", style = MaterialTheme.typography.titleSmall)
+        ShortcutMap.descriptions.forEach { (keys, what) ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = keys,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = what,
+                    modifier = Modifier.weight(1.4f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Text("Janelas", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onCloseAll) { Text("Fechar todas") }
+            OutlinedButton(onClick = onClearRecent) { Text("Limpar recentes") }
+        }
 
         Text(
             text = "Janelas internas funcionam em qualquer celular com Android 12 ou superior. " +

@@ -186,6 +186,7 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                                     onTheme = viewModel::setTheme,
                                     onWallpaper = viewModel::setWallpaper,
                                     onClearRecent = viewModel::clearRecent,
+                                    onCloseAll = viewModel::closeAllWindows,
                                     onLaunch = { pkg -> viewModel.closeOverlays(); onLaunch(pkg) },
                                     onClearNotifications = viewModel::clearNotifications,
                                     mediaContent = {
