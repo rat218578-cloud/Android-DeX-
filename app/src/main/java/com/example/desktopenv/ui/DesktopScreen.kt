@@ -10,7 +10,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -168,10 +167,10 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                     .forEach { window ->
                         key(window.id) {
                             // Entrada suave ao abrir; ao fechar, a janela sai da lista sem animação de saída.
-                            val entered = remember { MutableTransitionState(false) }
-                            LaunchedEffect(Unit) { entered.targetState = true }
+                            var entered by remember { mutableStateOf(false) }
+                            LaunchedEffect(Unit) { entered = true }
                             AnimatedVisibility(
-                                visibleState = entered,
+                                visible = entered,
                                 enter = fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.96f),
                                 exit = fadeOut(tween(120)),
                             ) {
