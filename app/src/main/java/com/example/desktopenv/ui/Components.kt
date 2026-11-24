@@ -16,6 +16,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.FilterChip
@@ -39,6 +42,9 @@ fun WindowKind.vector(): ImageVector = when (this) {
     WindowKind.SETTINGS -> Icons.Default.Settings
     WindowKind.CALENDAR -> Icons.Default.Info
     WindowKind.RECENT -> Icons.Default.Star
+    WindowKind.NOTIFICATIONS -> Icons.Default.Notifications
+    WindowKind.MEDIA -> Icons.Default.PlayArrow
+    WindowKind.FILES -> Icons.Default.List
 }
 
 fun ThemeChoice.label(): String = when (this) {

@@ -35,6 +35,7 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -46,6 +47,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.example.desktopenv.model.Placement
 import com.example.desktopenv.model.WindowKind
 import com.example.desktopenv.ui.theme.Wallpapers
 import com.example.desktopenv.viewmodel.DesktopViewModel
@@ -151,13 +153,18 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
                         key(window.id) {
                             WindowHost(
                                 window = window,
+                                frame = window.frame(areaW, areaH),
                                 onFocus = { viewModel.focusWindow(window.id) },
                                 onDrag = { dx, dy ->
                                     viewModel.moveWindow(window.id, dx, dy, areaW, areaH, density)
                                 },
+                                onDragEnd = {
+                                    viewModel.endWindowDrag(window.id, areaW, areaH, density)
+                                },
                                 onResize = { dw, dh ->
                                     viewModel.resizeWindow(window.id, dw, dh, areaW, areaH, density)
                                 },
+                                onToggleMaximize = { viewModel.toggleMaximizeWindow(window.id) },
                                 onMinimize = { viewModel.minimizeWindow(window.id) },
                                 onClose = { viewModel.closeWindow(window.id) },
                             ) {
@@ -240,14 +247,23 @@ fun DesktopScreen(viewModel: DesktopViewModel, onLaunch: (String) -> Unit) {
     }
 }
 
-/** Atalhos: Esc fecha menus, Alt+Tab alterna janelas, Ctrl+W fecha, Ctrl+M minimiza, Windows abre Iniciar. */
+/**
+ * Atalhos: Esc fecha menus, Alt+Tab alterna janelas, Alt+F4 e Ctrl+W fecham a janela em foco,
+ * Ctrl+M minimiza, F11 maximiza/restaura, Windows+setas encaixam ou maximizam, Windows sozinho abre Iniciar.
+ */
 private fun handleShortcut(event: KeyEvent, viewModel: DesktopViewModel): Boolean {
     if (event.type != KeyEventType.KeyDown) return false
     return when {
         event.key == Key.Escape -> { viewModel.closeOverlays(); true }
         event.key == Key.Tab && event.isAltPressed -> { viewModel.cycleWindows(); true }
+        event.key == Key.F4 && event.isAltPressed -> { viewModel.closeTopWindow(); true }
         event.key == Key.W && event.isCtrlPressed -> { viewModel.closeTopWindow(); true }
         event.key == Key.M && event.isCtrlPressed -> { viewModel.minimizeTopWindow(); true }
+        event.key == Key.F11 -> { viewModel.toggleMaximizeTopWindow(); true }
+        event.isMetaPressed && event.key == Key.DirectionLeft -> { viewModel.snapTopWindow(Placement.SNAP_LEFT); true }
+        event.isMetaPressed && event.key == Key.DirectionRight -> { viewModel.snapTopWindow(Placement.SNAP_RIGHT); true }
+        event.isMetaPressed && event.key == Key.DirectionUp -> { viewModel.maximizeTopWindow(); true }
+        event.isMetaPressed && event.key == Key.DirectionDown -> { viewModel.restoreTopWindow(); true }
         event.key == Key.MetaLeft || event.key == Key.MetaRight -> { viewModel.toggleStart(); true }
         else -> false
     }

@@ -41,15 +41,19 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.example.desktopenv.data.ThemeChoice
-import com.example.desktopenv.ui.theme.Wallpapers
+import com.example.desktopenv.model.Bounds
 import com.example.desktopenv.model.CalendarGrid
 import com.example.desktopenv.model.DesktopWindow
+import com.example.desktopenv.model.Placement
 import com.example.desktopenv.model.WindowKind
+import com.example.desktopenv.ui.theme.Wallpapers
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -57,33 +61,44 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Moldura de janela: barra de título arrastável, botões minimizar/fechar,
- * alça de redimensionamento no canto e foco ao toque.
+ * Moldura de janela. A posição e o tamanho vêm de [frame], que já considera maximizar e encaixar.
+ *
+ * - Arrastar a barra de título move a janela; ao soltar numa borda, ela encaixa ou maximiza.
+ * - Clique duplo na barra de título alterna entre maximizada e flutuante.
+ * - A alça no canto inferior direito redimensiona apenas janelas flutuantes.
  */
 @Composable
 fun WindowHost(
     window: DesktopWindow,
+    frame: Bounds,
     onFocus: () -> Unit,
     onDrag: (Float, Float) -> Unit,
+    onDragEnd: () -> Unit,
     onResize: (Float, Float) -> Unit,
+    onToggleMaximize: () -> Unit,
     onMinimize: () -> Unit,
     onClose: () -> Unit,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
-    val shape = RoundedCornerShape(16.dp)
+    val floating = window.placement == Placement.FLOATING
+    val corner = if (floating) 16.dp else 0.dp
+    val shape = RoundedCornerShape(corner)
+    val maximized = window.placement == Placement.MAXIMIZED
     val currentFocus by rememberUpdatedState(onFocus)
     val currentDrag by rememberUpdatedState(onDrag)
+    val currentDragEnd by rememberUpdatedState(onDragEnd)
     val currentResize by rememberUpdatedState(onResize)
+    val currentToggle by rememberUpdatedState(onToggleMaximize)
 
     Box(
         modifier = Modifier
-            .offset { IntOffset(window.x.roundToInt(), window.y.roundToInt()) }
+            .offset { IntOffset(frame.x.roundToInt(), frame.y.roundToInt()) }
             .size(
-                width = with(density) { window.width.toDp() },
-                height = with(density) { window.height.toDp() },
+                width = with(density) { frame.width.toDp() },
+                height = with(density) { frame.height.toDp() },
             )
-            .shadow(elevation = 16.dp, shape = shape)
+            .shadow(elevation = if (floating) 16.dp else 0.dp, shape = shape)
             .pointerInput(window.id) {
                 detectTapGestures(onPress = {
                     currentFocus()
@@ -98,17 +113,23 @@ fun WindowHost(
                 .background(MaterialTheme.colorScheme.surface)
                 .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), shape),
         ) {
-            // Barra de título: arrastar move a janela
+            // Barra de título: arrastar move (e encaixa ao soltar); clique duplo maximiza/restaura
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(40.dp)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .pointerInput(window.id) {
-                        detectDragGestures { change, drag ->
+                        detectDragGestures(
+                            onDragEnd = { currentDragEnd() },
+                            onDragCancel = { currentDragEnd() },
+                        ) { change, drag ->
                             change.consume()
                             currentDrag(drag.x, drag.y)
                         }
+                    }
+                    .pointerInput(window.id) {
+                        detectTapGestures(onDoubleTap = { currentToggle() })
                     }
                     .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -119,8 +140,20 @@ fun WindowHost(
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                 )
-                TextButton(onClick = onMinimize) { Text("–") }
-                TextButton(onClick = onClose) { Text("×") }
+                TextButton(
+                    onClick = onToggleMaximize,
+                    modifier = Modifier.semantics {
+                        contentDescription = if (maximized) "Restaurar janela" else "Maximizar janela"
+                    },
+                ) { Text(if (maximized) "❐" else "□") }
+                TextButton(
+                    onClick = onMinimize,
+                    modifier = Modifier.semantics { contentDescription = "Minimizar janela" },
+                ) { Text("–") }
+                TextButton(
+                    onClick = onClose,
+                    modifier = Modifier.semantics { contentDescription = "Fechar janela" },
+                ) { Text("×") }
             }
 
             Box(
@@ -133,18 +166,20 @@ fun WindowHost(
             }
         }
 
-        // Alça de redimensionamento (canto inferior direito)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .size(24.dp)
-                .pointerInput(window.id) {
-                    detectDragGestures { change, drag ->
-                        change.consume()
-                        currentResize(drag.x, drag.y)
-                    }
-                },
-        )
+        // Alça de redimensionamento (canto inferior direito), só em janelas flutuantes
+        if (floating) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(24.dp)
+                    .pointerInput(window.id) {
+                        detectDragGestures { change, drag ->
+                            change.consume()
+                            currentResize(drag.x, drag.y)
+                        }
+                    },
+            )
+        }
     }
 }
 
@@ -165,6 +200,11 @@ fun WindowBody(
         WindowKind.SETTINGS -> SettingsBody(theme, wallpaper, onTheme, onWallpaper, onClearRecent)
         WindowKind.CALENDAR -> CalendarBody()
         WindowKind.RECENT -> RecentBody(recent, labelOf, onLaunch)
+        // Corpos das fases 3 a 5; enquanto não existem, a janela mostra apenas que está em construção.
+        WindowKind.NOTIFICATIONS, WindowKind.MEDIA, WindowKind.FILES -> Text(
+            text = "Em construção.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

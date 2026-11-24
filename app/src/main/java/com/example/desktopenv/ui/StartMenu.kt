@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -74,11 +76,12 @@ fun StartMenu(
             Spacer(Modifier.height(12.dp))
             Text("Sistema", style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(4.dp))
-            Row(
+            // Rolável na horizontal: são seis itens e nem todos cabem em telas estreitas.
+            LazyRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                WindowKind.entries.forEach { kind ->
+                items(WindowKind.entries) { kind ->
                     AppTile(
                         label = kind.title,
                         bitmap = null,

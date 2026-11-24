@@ -14,8 +14,10 @@ import com.example.desktopenv.data.NetworkKind
 import com.example.desktopenv.data.SystemStatus
 import com.example.desktopenv.data.ThemeChoice
 import com.example.desktopenv.data.WALLPAPER_COUNT
+import com.example.desktopenv.model.Placement
 import com.example.desktopenv.model.RecentList
 import com.example.desktopenv.model.WindowKind
+import com.example.desktopenv.model.WindowLayoutCodec
 import com.example.desktopenv.model.WindowLogic
 import com.example.desktopenv.model.WindowsState
 import java.time.LocalDateTime
@@ -25,6 +27,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -68,6 +72,21 @@ class DesktopViewModel(application: Application) : AndroidViewModel(application)
     init {
         status.start()
         loadApps()
+        restoreAndPersistLayout()
+    }
+
+    /**
+     * Restaura o layout salvo e, a partir daí, salva cada mudança de janelas com debounce.
+     * Falhas de disco não derrubam o desktop: o layout só deixa de ser persistido.
+     */
+    private fun restoreAndPersistLayout() {
+        viewModelScope.launch {
+            val saved = runCatching { prefs.state.first().layout }.getOrDefault("")
+            _windows.value = WindowLayoutCodec.decode(saved)
+            _windows.debounce(400L).collect { state ->
+                runCatching { prefs.setLayout(WindowLayoutCodec.encode(state)) }
+            }
+        }
     }
 
     override fun onCleared() {
@@ -109,9 +128,34 @@ class DesktopViewModel(application: Application) : AndroidViewModel(application)
 
     // ---- Janelas internas ----
 
-    fun openBuiltin(kind: WindowKind, areaW: Float, areaH: Float, density: Float) {
-        _windows.update { WindowLogic.open(it, kind, areaW, areaH, density) }
+    fun openBuiltin(kind: WindowKind, areaW: Float, areaH: Float, density: Float, payload: String = "") {
+        _windows.update { WindowLogic.open(it, kind, areaW, areaH, density, payload) }
         closeOverlays()
+    }
+
+    fun maximizeWindow(id: Long) = _windows.update { WindowLogic.maximize(it, id) }
+
+    fun toggleMaximizeWindow(id: Long) = _windows.update { WindowLogic.toggleMaximize(it, id) }
+
+    fun restoreWindow(id: Long) = _windows.update { WindowLogic.restore(it, id) }
+
+    fun snapWindow(id: Long, side: Placement) = _windows.update { WindowLogic.snap(it, id, side) }
+
+    /** Chamado ao soltar uma janela arrastada: encaixa se ela parou numa borda. */
+    fun endWindowDrag(id: Long, areaW: Float, areaH: Float, density: Float) =
+        _windows.update { WindowLogic.edgeSnap(it, id, areaW, areaH, threshold = EDGE_SNAP_DP * density) }
+
+    /** Ações da janela em foco, usadas pelos atalhos de teclado. */
+    fun maximizeTopWindow() = updateTop { s, id -> WindowLogic.maximize(s, id) }
+
+    fun toggleMaximizeTopWindow() = updateTop { s, id -> WindowLogic.toggleMaximize(s, id) }
+
+    fun restoreTopWindow() = updateTop { s, id -> WindowLogic.restore(s, id) }
+
+    fun snapTopWindow(side: Placement) = updateTop { s, id -> WindowLogic.snap(s, id, side) }
+
+    private fun updateTop(transform: (WindowsState, Long) -> WindowsState) {
+        _windows.update { s -> s.topWindowId?.let { transform(s, it) } ?: s }
     }
 
     fun focusWindow(id: Long) = _windows.update { WindowLogic.focus(it, id) }
@@ -178,5 +222,10 @@ class DesktopViewModel(application: Application) : AndroidViewModel(application)
 
     fun nextWallpaper() {
         setWallpaper((prefsState.value.wallpaper + 1) % WALLPAPER_COUNT)
+    }
+
+    private companion object {
+        /** Distância da borda, em dp, que dispara o encaixe ao soltar a janela. */
+        const val EDGE_SNAP_DP = 12f
     }
 }

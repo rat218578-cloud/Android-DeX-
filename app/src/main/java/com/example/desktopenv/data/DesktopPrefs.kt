@@ -17,6 +17,8 @@ data class DesktopPrefsState(
     val wallpaper: Int = 0,
     val pinned: List<String> = emptyList(),
     val recent: List<String> = emptyList(),
+    /** Layout das janelas no formato de [com.example.desktopenv.model.WindowLayoutCodec]. */
+    val layout: String = "",
 )
 
 /** Deve ser igual ao número de papéis de parede definidos na UI. */
@@ -34,6 +36,7 @@ class DesktopPrefs(context: Context) {
         val WALLPAPER = intPreferencesKey("wallpaper")
         val PINNED = stringPreferencesKey("pinned")
         val RECENT = stringPreferencesKey("recent")
+        val LAYOUT = stringPreferencesKey("window_layout")
     }
 
     val state: Flow<DesktopPrefsState> = store.data.map { p ->
@@ -43,7 +46,12 @@ class DesktopPrefs(context: Context) {
             wallpaper = (p[Keys.WALLPAPER] ?: 0).coerceIn(0, WALLPAPER_COUNT - 1),
             pinned = decode(p[Keys.PINNED]),
             recent = decode(p[Keys.RECENT]),
+            layout = p[Keys.LAYOUT].orEmpty(),
         )
+    }
+
+    suspend fun setLayout(encoded: String) {
+        store.edit { it[Keys.LAYOUT] = encoded }
     }
 
     suspend fun setTheme(choice: ThemeChoice) {

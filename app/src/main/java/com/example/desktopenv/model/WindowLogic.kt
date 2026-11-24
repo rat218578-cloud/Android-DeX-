@@ -2,23 +2,57 @@ package com.example.desktopenv.model
 
 import kotlin.math.max
 
-/** Janelas internas do desktop. Apps externos são abertos pelo Android, não embutidos. */
-enum class WindowKind(val title: String) {
+/**
+ * Tipos de janela interna. [allowsMultiple] indica se podem existir várias instâncias
+ * ao mesmo tempo (cada uma com seu próprio [DesktopWindow.payload]).
+ */
+enum class WindowKind(val title: String, val allowsMultiple: Boolean = false) {
     SETTINGS("Configurações"),
     CALENDAR("Calendário"),
     RECENT("Recentes"),
+    NOTIFICATIONS("Notificações"),
+    MEDIA("Mídia"),
+    FILES("Arquivos", allowsMultiple = true),
 }
+
+/** Como a janela está posicionada. Maximizada e encaixada derivam o retângulo da área atual. */
+enum class Placement { FLOATING, MAXIMIZED, SNAP_LEFT, SNAP_RIGHT }
+
+data class Bounds(val x: Float, val y: Float, val width: Float, val height: Float)
 
 data class DesktopWindow(
     val id: Long,
     val kind: WindowKind,
+    /** Posição e tamanho só valem para janelas [Placement.FLOATING]. */
     val x: Float,
     val y: Float,
     val width: Float,
     val height: Float,
     val minimized: Boolean,
     val z: Int,
-)
+    /** Dado extra da janela, como a pasta raiz de uma janela de arquivos. Vazio se não usado. */
+    val payload: String = "",
+    val placement: Placement = Placement.FLOATING,
+    /** Retângulo flutuante guardado enquanto a janela está maximizada ou encaixada. */
+    val restoreBounds: Bounds? = null,
+) {
+    /** Retângulo efetivo na área de trabalho atual. */
+    fun frame(areaW: Float, areaH: Float): Bounds = when (placement) {
+        Placement.FLOATING -> {
+            val w = width.coerceAtMost(areaW)
+            val h = height.coerceAtMost(areaH)
+            Bounds(
+                x = x.coerceIn(0f, max(0f, areaW - w)),
+                y = y.coerceIn(0f, max(0f, areaH - h)),
+                width = w,
+                height = h,
+            )
+        }
+        Placement.MAXIMIZED -> Bounds(0f, 0f, areaW, areaH)
+        Placement.SNAP_LEFT -> Bounds(0f, 0f, areaW / 2f, areaH)
+        Placement.SNAP_RIGHT -> Bounds(areaW / 2f, 0f, areaW / 2f, areaH)
+    }
+}
 
 data class WindowsState(
     val windows: List<DesktopWindow> = emptyList(),
@@ -42,9 +76,12 @@ object WindowLogic {
         areaW: Float,
         areaH: Float,
         density: Float,
+        payload: String = "",
     ): WindowsState {
-        // Uma instância por tipo: abrir de novo apenas foca/restaura a existente.
-        state.windows.firstOrNull { it.kind == kind }?.let { return focus(state, it.id) }
+        // Tipos únicos: abrir de novo apenas foca/restaura a existente.
+        if (!kind.allowsMultiple) {
+            state.windows.firstOrNull { it.kind == kind }?.let { return focus(state, it.id) }
+        }
 
         val w = minOf(areaW * 0.8f, 560f * density).coerceAtLeast(260f * density)
         val h = minOf(areaH * 0.7f, 520f * density).coerceAtLeast(220f * density)
@@ -61,6 +98,7 @@ object WindowLogic {
             height = h,
             minimized = false,
             z = state.nextZ,
+            payload = payload,
         )
         return state.copy(
             windows = state.windows + window,
@@ -107,6 +145,46 @@ object WindowLogic {
         return focus(state, visible.first().id)
     }
 
+    /** Maximiza a janela (ou a restaura, se já estiver maximizada). */
+    fun toggleMaximize(state: WindowsState, id: Long): WindowsState {
+        val target = state.windows.firstOrNull { it.id == id } ?: return state
+        return if (target.placement == Placement.MAXIMIZED) restore(state, id) else maximize(state, id)
+    }
+
+    fun maximize(state: WindowsState, id: Long): WindowsState =
+        focus(updateWindow(state, id) { toPlaced(it, Placement.MAXIMIZED) }, id)
+
+    /** Encaixa a janela na metade esquerda ou direita. Outros valores de [side] são ignorados. */
+    fun snap(state: WindowsState, id: Long, side: Placement): WindowsState {
+        if (side != Placement.SNAP_LEFT && side != Placement.SNAP_RIGHT) return state
+        return focus(updateWindow(state, id) { toPlaced(it, side) }, id)
+    }
+
+    /** Volta a janela ao modo flutuante, com o tamanho e a posição anteriores. */
+    fun restore(state: WindowsState, id: Long): WindowsState =
+        focus(updateWindow(state, id) { toFloating(it) }, id)
+
+    /**
+     * Decide o encaixe ao soltar uma janela arrastada: borda esquerda ou direita encaixa,
+     * topo maximiza. Fora das bordas, a janela permanece flutuante.
+     */
+    fun edgeSnap(
+        state: WindowsState,
+        id: Long,
+        areaW: Float,
+        areaH: Float,
+        threshold: Float,
+    ): WindowsState {
+        val target = state.windows.firstOrNull { it.id == id } ?: return state
+        val f = target.frame(areaW, areaH)
+        return when {
+            f.x <= threshold -> snap(state, id, Placement.SNAP_LEFT)
+            f.x + f.width >= areaW - threshold -> snap(state, id, Placement.SNAP_RIGHT)
+            f.y <= threshold -> maximize(state, id)
+            else -> state
+        }
+    }
+
     /** Move a janela, mantendo pelo menos [minVisible] px da barra de título dentro da área. */
     fun move(
         state: WindowsState,
@@ -116,7 +194,8 @@ object WindowLogic {
         areaW: Float,
         areaH: Float,
         minVisible: Float,
-    ): WindowsState = updateWindow(state, id) { w ->
+    ): WindowsState = updateWindow(state, id) { raw ->
+        val w = toFloating(raw)
         w.copy(
             x = (w.x + dx).coerceIn(0f, max(0f, areaW - w.width)),
             y = (w.y + dy).coerceIn(0f, max(0f, areaH - minVisible)),
@@ -132,11 +211,37 @@ object WindowLogic {
         minH: Float,
         areaW: Float,
         areaH: Float,
-    ): WindowsState = updateWindow(state, id) { w ->
+    ): WindowsState = updateWindow(state, id) { raw ->
+        val w = toFloating(raw)
         w.copy(
             width = (w.width + dw).coerceIn(minW, max(minW, areaW - w.x)),
             height = (w.height + dh).coerceIn(minH, max(minH, areaH - w.y)),
         )
+    }
+
+    /** Converte para flutuante, usando o retângulo guardado. Não faz nada se já for flutuante. */
+    private fun toFloating(w: DesktopWindow): DesktopWindow {
+        if (w.placement == Placement.FLOATING) return w
+        val b = w.restoreBounds ?: Bounds(w.x, w.y, w.width, w.height)
+        return w.copy(
+            x = b.x,
+            y = b.y,
+            width = b.width,
+            height = b.height,
+            placement = Placement.FLOATING,
+            restoreBounds = null,
+        )
+    }
+
+    /** Converte para [placement], guardando o retângulo flutuante para restaurar depois. */
+    private fun toPlaced(w: DesktopWindow, placement: Placement): DesktopWindow {
+        if (w.placement == placement) return w
+        val base = if (w.placement == Placement.FLOATING) {
+            Bounds(w.x, w.y, w.width, w.height)
+        } else {
+            w.restoreBounds ?: Bounds(w.x, w.y, w.width, w.height)
+        }
+        return w.copy(placement = placement, restoreBounds = base)
     }
 
     private fun updateWindow(
